@@ -8,7 +8,9 @@ configuration:
     description: Porta UDP para contabilidade RADIUS (padrão 1813).
   log_level:
     name: Nível de Log
-    description: Nível de detalhamento dos logs do FreeRADIUS (0=mínimo, 5=máximo).
+    description: >-
+      Nível de detalhamento dos logs do FreeRADIUS
+      (0=mínimo, 5=máximo).
   log_auth:
     name: Log de Autenticação
     description: Registra tentativas de autenticação.
@@ -17,7 +19,9 @@ configuration:
     description: Registra senhas incorretas (atenção — dados sensíveis).
   log_auth_goodpass:
     name: Log de Senha Correta
-    description: Registra autenticações bem-sucedidas (atenção — dados sensíveis).
+    description: >-
+      Registra autenticações bem-sucedidas
+      (atenção — dados sensíveis).
   clients:
     name: Clientes RADIUS (NAS)
     description: Lista de dispositivos autorizados a enviar requisições RADIUS.
@@ -35,7 +39,9 @@ configuration:
     description: Lista de usuários locais para autenticação.
   sql:
     name: Integração SQL
-    description: Configurações de banco de dados para usuários e log de contabilidade.
+    description: >-
+      Configurações de banco de dados para usuários
+      e log de contabilidade.
   sql.enabled:
     name: Habilitar SQL
     description: Ativa o módulo SQL do FreeRADIUS.

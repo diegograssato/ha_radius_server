@@ -2,10 +2,14 @@
 configuration:
   auth_port:
     name: Porta de Autenticação (UDP)
-    description: Porta UDP para requisições de autenticação RADIUS (padrão 1812).
+    description: >-
+      Porta UDP para requisições de autenticação RADIUS
+      (padrão 1812).
   acct_port:
     name: Porta de Contabilidade (UDP)
-    description: Porta UDP para requisições de contabilidade RADIUS (padrão 1813).
+    description: >-
+      Porta UDP para requisições de contabilidade RADIUS
+      (padrão 1813).
   log_level:
     name: Nível de Log
     description: Nível de detalhamento dos logs (0=sem debug, 5=máximo debug).
@@ -25,7 +29,9 @@ configuration:
       Cada cliente precisa de nome, endereço IP e segredo compartilhado.
   eap:
     name: Configuração EAP
-    description: Configurações do módulo EAP (Extensible Authentication Protocol).
+    description: >-
+      Configurações do módulo EAP
+      (Extensible Authentication Protocol).
   eap.default_eap_type:
     name: Tipo EAP Padrão
     description: Método EAP padrão — peap, ttls ou tls.
@@ -37,7 +43,9 @@ configuration:
     description: Lista de usuários locais com senha em texto plano (cleartext).
   sql:
     name: Configuração SQL
-    description: Integração com banco de dados SQL para usuários e contabilidade.
+    description: >-
+      Integração com banco de dados SQL
+      para usuários e contabilidade.
   sql.enabled:
     name: Habilitar SQL
     description: Ativa a integração com banco de dados SQL.

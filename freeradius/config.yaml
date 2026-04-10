@@ -69,7 +69,6 @@ options:
     password: "radpass"
     radius_db: "/data/radius.db"
     read_groups: true
-    read_clients: true
     read_clients: false
   allow_hosts:
     - 10.0.0.0/8
