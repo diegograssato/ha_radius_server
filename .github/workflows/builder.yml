@@ -26,10 +26,38 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Get changed files
         id: changed_files
-        uses: masesgroup/retrieve-changed-files@v3
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            base="${{ github.event.before }}"
+            head="${{ github.sha }}"
+          else
+            base="$(git rev-parse HEAD^ 2>/dev/null || true)"
+            head="${{ github.sha }}"
+          fi
+
+          if [[ -z "${base}" || "${base}" == "0000000000000000000000000000000000000000" ]]; then
+            mapfile -t files < <(git ls-tree -r --name-only "${head}")
+          else
+            mapfile -t files < <(git diff --name-only "${base}" "${head}")
+          fi
+
+          changed=""
+          if (( ${#files[@]} > 0 )); then
+            changed="$(printf '%s ' "${files[@]}")"
+            changed="${changed% }"
+          fi
+
+          echo "all=${changed}" >> "$GITHUB_OUTPUT"
 
       - name: Get addons
         id: addons
