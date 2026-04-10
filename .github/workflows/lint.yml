@@ -14,7 +14,7 @@ jobs:
     name: YAMLLint
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Run YAMLLint
         uses: frenck/action-yamllint@v1.5
@@ -24,7 +24,7 @@ jobs:
     name: ShellCheck
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@2.0.0
@@ -40,7 +40,7 @@ jobs:
     name: Hadolint (Dockerfile lint)
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Run Hadolint
         run: |
