@@ -1,0 +1,27 @@
+##############################################################################
+# policy.d/filter — Filtros de atributos de usuário
+##############################################################################
+
+filter_username {
+    if (&User-Name == "") {
+        reject
+    }
+    if (&User-Name =~ / /) {
+        reject
+    }
+    if (&User-Name =~ /@.*@/ ) {
+        reject
+    }
+    if (&User-Name =~ /\.\./) {
+        reject
+    }
+    if ((&User-Name =~ /@/) && (&User-Name !~ /@(.+)\.(.+)$/)) {
+        reject
+    }
+    if (&User-Name =~ /\.$/) {
+        reject
+    }
+    if (&User-Name =~ /^\./) {
+        reject
+    }
+}

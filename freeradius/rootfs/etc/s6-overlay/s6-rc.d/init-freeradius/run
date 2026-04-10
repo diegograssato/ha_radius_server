@@ -1,0 +1,135 @@
+#!/command/with-contenv bashio
+# vim: ft=bash
+# shellcheck shell=bash
+# ==============================================================================
+# Prepara o serviço FreeRADIUS: gera a configuração a partir das opções do addon
+# ==============================================================================
+
+set +e
+
+declare auth_port
+declare acct_port
+declare log_level
+declare log_auth
+
+bashio::log.info "Iniciando configuração do FreeRADIUS..."
+
+# Validações básicas
+if ! bashio::config.has_value 'clients'; then
+    bashio::exit.nok "É necessário configurar ao menos um cliente RADIUS (clients)!"
+fi
+
+# Portas
+auth_port=$(bashio::config 'auth_port')
+acct_port=$(bashio::config 'acct_port')
+
+if [ "${auth_port}" = "${acct_port}" ]; then
+    bashio::exit.nok "A porta de autenticação (auth_port) e de contabilidade (acct_port) não podem ser iguais!"
+fi
+
+bashio::log.info "Porta de Autenticação : ${auth_port}"
+bashio::log.info "Porta de Contabilidade: ${acct_port}"
+
+# Gera os certificados TLS auto-assinados se não existirem
+if ! bashio::config.has_value 'eap.tls.certificate_file' || \
+   [ ! -f "$(bashio::config 'eap.tls.certificate_file')" ]; then
+    bashio::log.warning "Certificado TLS não encontrado. Gerando certificado auto-assinado..."
+    openssl req -new -x509 -nodes \
+        -keyout /etc/raddb/certs/server.key \
+        -out /etc/raddb/certs/server.pem \
+        -days 3650 \
+        -subj "/C=BR/ST=SP/L=SaoPaulo/O=HomeAssistant/CN=freeradius.local" \
+        2>/dev/null
+    chown root:root /etc/raddb/certs/server.key /etc/raddb/certs/server.pem
+    chmod 600 /etc/raddb/certs/server.key
+    chmod 644 /etc/raddb/certs/server.pem
+    bashio::log.info "Certificado gerado: /etc/raddb/certs/server.pem"
+fi
+
+# Gera radiusd.conf a partir do template tempio
+bashio::log.info "Gerando /etc/raddb/radiusd.conf ..."
+# Modifica o radiusd.conf original do Alpine em vez de substituí-lo
+# Isso evita incompatibilidades com paths específicos do pacote Alpine
+declare log_auth log_auth_badpass log_auth_goodpass
+log_auth=$(jq -r '.log_auth' /data/options.json)
+log_auth_badpass=$(jq -r '.log_auth_badpass' /data/options.json)
+log_auth_goodpass=$(jq -r '.log_auth_goodpass' /data/options.json)
+
+# Converte booleano Python/JSON (true/false) para yes/no do FreeRADIUS
+[ "${log_auth}" = "true" ] && log_auth="yes" || log_auth="no"
+[ "${log_auth_badpass}" = "true" ] && log_auth_badpass="yes" || log_auth_badpass="no"
+[ "${log_auth_goodpass}" = "true" ] && log_auth_goodpass="yes" || log_auth_goodpass="no"
+
+sed -i \
+    -e "s|auth = .*|auth = ${log_auth}|" \
+    -e "s|auth_badpass = .*|auth_badpass = ${log_auth_badpass}|" \
+    -e "s|auth_goodpass = .*|auth_goodpass = ${log_auth_goodpass}|" \
+    -e "s|destination = files|destination = stdout|" \
+    -e "s|^\s*user = radius|#	user = radius|" \
+    -e "s|^\s*group = radius|#	group = radius|" \
+    /etc/raddb/radiusd.conf
+
+# Gera clients.conf
+bashio::log.info "Gerando /etc/raddb/clients.conf ..."
+cat /data/options.json \
+    | tempio \
+      -template /usr/share/tempio/clients.gtpl \
+      -out /etc/raddb/clients.conf
+
+# Gera mods-available/eap (sobrescreve o do pacote com nossas configurações)
+bashio::log.info "Gerando módulo EAP..."
+cat /data/options.json \
+    | tempio \
+      -template /usr/share/tempio/mods-eap.gtpl \
+      -out /etc/raddb/mods-available/eap
+
+# Desabilita sql e ldap por padrão (Alpine ativa por padrão, mas só habilitamos via opção)
+rm -f /etc/raddb/mods-enabled/sql /etc/raddb/mods-enabled/ldap /etc/raddb/mods-enabled/detail.log
+
+# Gera mods-available/sql se habilitado
+if bashio::config.true 'sql.enabled'; then
+    bashio::log.info "SQL habilitado. Gerando módulo SQL..."
+    cat /data/options.json \
+        | tempio \
+          -template /usr/share/tempio/mods-sql.gtpl \
+          -out /etc/raddb/mods-available/sql
+    ln -sf /etc/raddb/mods-available/sql /etc/raddb/mods-enabled/sql
+
+    # Inicializa banco SQLite se necessário
+    sql_driver=$(bashio::config 'sql.driver')
+    if [ "${sql_driver}" = "rlm_sql_sqlite" ]; then
+        sql_db=$(bashio::config 'sql.radius_db')
+        sql_db_dir=$(dirname "${sql_db}")
+        mkdir -p "${sql_db_dir}"
+        if [ ! -f "${sql_db}" ]; then
+            bashio::log.info "Inicializando banco SQLite em: ${sql_db}"
+            sqlite3 "${sql_db}" < /etc/raddb/mods-config/sql/main/sqlite/setup.sql 2>/dev/null || \
+            bashio::log.warning "Schema SQL não encontrado. O banco será criado automaticamente."
+        fi
+    fi
+else
+    # SQL desabilitado: substitui chamadas obrigatórias a sql por -sql nos sites
+    bashio::log.info "SQL desabilitado. Ajustando sites para modo sem SQL..."
+    sed -i \
+        -e '/^[[:space:]]*sql$/s/sql/-sql/' \
+        /etc/raddb/sites-enabled/default \
+        /etc/raddb/sites-enabled/inner-tunnel 2>/dev/null || true
+fi
+
+# Gera arquivo de usuários (users)
+bashio::log.info "Gerando /etc/raddb/users ..."
+{
+    echo "# Arquivo de usuários gerado automaticamente pelo addon FreeRADIUS"
+    echo "# Não edite manualmente — use as opções do addon"
+    echo ""
+    jq -r '.users[] | "\(.username) Cleartext-Password := \"\(.password)\"\n\tFall-Through = no\n"' /data/options.json
+} > /etc/raddb/users
+
+# Ajusta permissões
+chown -R root:radius /etc/raddb 2>/dev/null || chown -R root:root /etc/raddb
+chmod 640 /etc/raddb/radiusd.conf \
+           /etc/raddb/clients.conf \
+           /etc/raddb/users
+chmod 600 /etc/raddb/certs/server.key 2>/dev/null || true
+
+bashio::log.info "Configuração gerada com sucesso!"

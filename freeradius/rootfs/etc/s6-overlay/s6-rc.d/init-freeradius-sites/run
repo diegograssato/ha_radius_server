@@ -1,0 +1,15 @@
+#!/command/with-contenv bashio
+# vim: ft=bash
+# shellcheck shell=bash
+# ==============================================================================
+# Cria os symlinks de sites-enabled no primeiro boot
+# ==============================================================================
+
+# Ativa os virtual servers padrão
+ln -sf /etc/freeradius/sites-available/default \
+       /etc/freeradius/sites-enabled/default 2>/dev/null || true
+
+ln -sf /etc/freeradius/sites-available/inner-tunnel \
+       /etc/freeradius/sites-enabled/inner-tunnel 2>/dev/null || true
+
+bashio::log.info "Sites do FreeRADIUS ativados."

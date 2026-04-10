@@ -1,0 +1,49 @@
+---
+configuration:
+  auth_port:
+    name: Porta de Autenticação (UDP)
+    description: Porta UDP para requisições de autenticação RADIUS (padrão 1812).
+  acct_port:
+    name: Porta de Contabilidade (UDP)
+    description: Porta UDP para requisições de contabilidade RADIUS (padrão 1813).
+  log_level:
+    name: Nível de Log
+    description: Nível de detalhamento dos logs (0=sem debug, 5=máximo debug).
+  log_auth:
+    name: Log de Autenticação
+    description: Registra tentativas de autenticação no log.
+  log_auth_badpass:
+    name: Log de Senha Incorreta
+    description: Registra senhas incorretas no log (atenção — dados sensíveis).
+  log_auth_goodpass:
+    name: Log de Senha Correta
+    description: Registra senhas corretas no log (atenção — dados sensíveis).
+  clients:
+    name: Clientes RADIUS (NAS)
+    description: >-
+      Lista de clientes autorizados a enviar requisições RADIUS.
+      Cada cliente precisa de nome, endereço IP e segredo compartilhado.
+  eap:
+    name: Configuração EAP
+    description: Configurações do módulo EAP (Extensible Authentication Protocol).
+  eap.default_eap_type:
+    name: Tipo EAP Padrão
+    description: Método EAP padrão — peap, ttls ou tls.
+  eap.tls:
+    name: Configuração TLS
+    description: Certificados e parâmetros TLS para EAP-TLS/PEAP/TTLS.
+  users:
+    name: Usuários Locais
+    description: Lista de usuários locais com senha em texto plano (cleartext).
+  sql:
+    name: Configuração SQL
+    description: Integração com banco de dados SQL para usuários e contabilidade.
+  sql.enabled:
+    name: Habilitar SQL
+    description: Ativa a integração com banco de dados SQL.
+  sql.driver:
+    name: Driver SQL
+    description: Driver de banco de dados (SQLite, MySQL ou PostgreSQL).
+  allow_hosts:
+    name: Redes Permitidas
+    description: Faixas de rede permitidas para clientes RADIUS.

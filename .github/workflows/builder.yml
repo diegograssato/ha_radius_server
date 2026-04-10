@@ -1,0 +1,123 @@
+# yamllint disable rule:line-length rule:truthy
+name: Build addon
+
+env:
+  BUILD_ARGS: "--test"
+  MONITORED_FILES: "build.yaml config.yaml Dockerfile rootfs"
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  release:
+    types: ["published"]
+
+jobs:
+  init:
+    runs-on: ubuntu-latest
+    name: Initialize builds
+    outputs:
+      changed_files: ${{ steps.changed_files.outputs.all }}
+      changed_addons: ${{ steps.changed_addons.outputs.addons }}
+      changed: ${{ steps.changed_addons.outputs.changed }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Get changed files
+        id: changed_files
+        uses: masesgroup/retrieve-changed-files@v3
+
+      - name: Get addons
+        id: addons
+        run: |
+          declare -a addons
+          for addon in $(find ./ -name config.yaml | cut -d "/" -f2 | sort -u); do
+            addons+=("$addon");
+          done
+          echo "addons=${addons[@]}" >> "$GITHUB_OUTPUT"
+
+      - name: Get changed addons
+        id: changed_addons
+        run: |
+          declare -a changed_addons
+          for addon in ${{ steps.addons.outputs.addons }}; do
+            if [[ "${{ steps.changed_files.outputs.all }}" =~ $addon ]]; then
+              for file in ${{ env.MONITORED_FILES }}; do
+                if [[ "${{ steps.changed_files.outputs.all }}" =~ $addon/$file ]]; then
+                  if [[ ! "${changed_addons[@]}" =~ $addon ]]; then
+                    changed_addons+=("\"${addon}\",");
+                  fi
+                fi
+              done
+            fi
+          done
+          changed=$(echo ${changed_addons[@]} | rev | cut -c 2- | rev)
+          if [[ -n ${changed} ]]; then
+            echo "Changed addons: $changed";
+            echo "changed=true" >> "$GITHUB_OUTPUT";
+            echo "addons=[$changed]" >> "$GITHUB_OUTPUT";
+          else
+            echo "No addon had any monitored files changed (${{ env.MONITORED_FILES }})";
+          fi
+
+  build:
+    needs: init
+    runs-on: ${{ matrix.runs-on }}
+    if: needs.init.outputs.changed == 'true'
+    name: Build ${{ matrix.arch }} ${{ matrix.addon }}
+    strategy:
+      fail-fast: false
+      matrix:
+        addon: ${{ fromJson(needs.init.outputs.changed_addons) }}
+        arch: ["aarch64", "amd64", "armv7"]
+        include:
+          - arch: amd64
+            runs-on: ubuntu-24.04
+          - arch: armv7
+            runs-on: ubuntu-24.04
+          - arch: aarch64
+            runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Get addon information
+        id: info
+        uses: home-assistant/actions/helpers/info@master
+        with:
+          path: "./${{ matrix.addon }}"
+
+      - name: Check if architecture is supported
+        id: check
+        run: |
+          if [[ "${{ steps.info.outputs.architectures }}" =~ ${{ matrix.arch }} ]]; then
+            echo "build_arch=true" >> "$GITHUB_OUTPUT";
+          else
+            echo "${{ matrix.arch }} is not supported by ${{ matrix.addon }}, skipping.";
+          fi
+
+      - name: Set build arguments for release
+        if: steps.check.outputs.build_arch == 'true' && github.event_name != 'pull_request'
+        run: echo "BUILD_ARGS=--docker-hub-check" >> $GITHUB_ENV
+
+      - name: Login to GitHub Container Registry
+        if: steps.check.outputs.build_arch == 'true' && github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build ${{ matrix.addon }} addon (${{ matrix.arch }})
+        if: steps.check.outputs.build_arch == 'true'
+        uses: home-assistant/builder@2026.02.1
+        with:
+          args: |
+            ${{ env.BUILD_ARGS }} \
+            --${{ matrix.arch }} \
+            --target /data/${{ matrix.addon }} \
+            --addon

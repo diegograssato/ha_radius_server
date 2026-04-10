@@ -1,0 +1,8 @@
+#!/command/with-contenv bashio
+# vim: ft=bash
+# shellcheck shell=bash
+# ==============================================================================
+# Rotina executada quando o FreeRADIUS encerra
+# ==============================================================================
+
+bashio::log.warning "Serviço FreeRADIUS encerrado. Código: ${1}"

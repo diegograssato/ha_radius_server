@@ -1,0 +1,15 @@
+#!/command/with-contenv bashio
+# vim: ft=bash
+# shellcheck shell=bash
+# ==============================================================================
+# Executa o serviço FreeRADIUS em foreground
+# ==============================================================================
+
+set +e
+
+bashio::log.info "Iniciando FreeRADIUS..."
+
+rm -f /run/radiusd/radiusd.pid 2>/dev/null
+
+# Roda radiusd em modo debug (-X) para capturar erros, saída vai para log do HA
+exec /usr/sbin/radiusd -X -d /etc/raddb 2>&1

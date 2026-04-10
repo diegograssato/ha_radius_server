@@ -1,0 +1,47 @@
+---
+configuration:
+  auth_port:
+    name: Porta de Autenticação (UDP)
+    description: Porta UDP para autenticação RADIUS (padrão 1812).
+  acct_port:
+    name: Porta de Contabilidade (UDP)
+    description: Porta UDP para contabilidade RADIUS (padrão 1813).
+  log_level:
+    name: Nível de Log
+    description: Nível de detalhamento dos logs do FreeRADIUS (0=mínimo, 5=máximo).
+  log_auth:
+    name: Log de Autenticação
+    description: Registra tentativas de autenticação.
+  log_auth_badpass:
+    name: Log de Senha Incorreta
+    description: Registra senhas incorretas (atenção — dados sensíveis).
+  log_auth_goodpass:
+    name: Log de Senha Correta
+    description: Registra autenticações bem-sucedidas (atenção — dados sensíveis).
+  clients:
+    name: Clientes RADIUS (NAS)
+    description: Lista de dispositivos autorizados a enviar requisições RADIUS.
+  eap:
+    name: Configuração EAP
+    description: Parâmetros do protocolo EAP.
+  eap.default_eap_type:
+    name: Tipo EAP Padrão
+    description: Método EAP padrão utilizado (peap, ttls ou tls).
+  eap.tls:
+    name: Configuração TLS
+    description: Certificados e parâmetros TLS para tunelamento seguro.
+  users:
+    name: Usuários Locais
+    description: Lista de usuários locais para autenticação.
+  sql:
+    name: Integração SQL
+    description: Configurações de banco de dados para usuários e log de contabilidade.
+  sql.enabled:
+    name: Habilitar SQL
+    description: Ativa o módulo SQL do FreeRADIUS.
+  sql.driver:
+    name: Driver do Banco
+    description: Tipo de banco de dados (SQLite, MySQL ou PostgreSQL).
+  allow_hosts:
+    name: Redes Permitidas
+    description: Faixas de rede autorizadas a enviar requisições RADIUS.

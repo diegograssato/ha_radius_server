@@ -1,0 +1,128 @@
+---
+version: 1.0.0
+slug: freeradius
+name: FreeRADIUS
+description: >-
+  Servidor RADIUS para autenticação de rede utilizando FreeRADIUS.
+  Suporta PAP, CHAP, MS-CHAPv2, EAP/PEAP, EAP/TTLS e integração com SQL.
+url: https://github.com/diegofurukawa/ha_radius_server/tree/main/freeradius
+arch:
+  - aarch64
+  - amd64
+  - armv7
+host_network: true
+init: false
+map:
+  - config:rw
+  - share:rw
+ports:
+  1812/udp: 1812
+  1813/udp: 1813
+  18120/udp: 18120
+ports_description:
+  1812/udp: Authentication (RADIUS)
+  1813/udp: Accounting (RADIUS)
+  18120/udp: Status server (RADIUS)
+options:
+  auth_port: 1812
+  acct_port: 1813
+  log_level: 1
+  log_auth: false
+  log_auth_badpass: false
+  log_auth_goodpass: false
+  clients:
+    - name: localhost
+      ipaddr: "127.0.0.1"
+      secret: "testing123"
+  eap:
+    default_eap_type: peap
+    timer_expire: 60
+    ignore_unknown_eap_types: false
+    tls:
+      private_key_password: "whatever"
+      private_key_file: "/etc/raddb/certs/server.key"
+      certificate_file: "/etc/raddb/certs/server.pem"
+      ca_file: "/etc/raddb/certs/server.pem"
+      dh_file: "/etc/raddb/certs/dh"
+      cipher_list: "DEFAULT"
+    peap:
+      default_eap_type: mschapv2
+      copy_request_to_tunnel: "no"
+      use_tunneled_reply: "yes"
+      virtual_server: inner-tunnel
+    ttls:
+      default_eap_type: md5
+      copy_request_to_tunnel: "no"
+      use_tunneled_reply: "no"
+      virtual_server: inner-tunnel
+  users:
+    - username: testuser
+      password: "testpassword"
+      group: "users"
+  sql:
+    enabled: false
+    driver: "rlm_sql_sqlite"
+    dialect: "sqlite"
+    server: "localhost"
+    port: 3306
+    login: "radius"
+    password: "radpass"
+    radius_db: "/data/radius.db"
+    read_groups: true
+    read_clients: true
+    read_clients: false
+  allow_hosts:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+    - 127.0.0.0/8
+schema:
+  auth_port: int(1024,65535)
+  acct_port: int(1024,65535)
+  log_level: int(0,5)
+  log_auth: bool
+  log_auth_badpass: bool
+  log_auth_goodpass: bool
+  clients:
+    - name: str
+      ipaddr: str
+      secret: str
+  eap:
+    default_eap_type: list(peap|ttls|tls|md5|mschapv2)
+    timer_expire: int(30,300)
+    ignore_unknown_eap_types: bool
+    tls:
+      private_key_password: str
+      private_key_file: str
+      certificate_file: str
+      ca_file: str
+      dh_file: str
+      cipher_list: str
+    peap:
+      default_eap_type: list(mschapv2|gtc|tls)
+      copy_request_to_tunnel: list(yes|no)
+      use_tunneled_reply: list(yes|no)
+      virtual_server: str
+    ttls:
+      default_eap_type: list(md5|gtc|mschapv2|pap|chap)
+      copy_request_to_tunnel: list(yes|no)
+      use_tunneled_reply: list(yes|no)
+      virtual_server: str
+  users:
+    - username: str
+      password: str
+      group: str?
+  sql:
+    enabled: bool
+    driver: list(rlm_sql_sqlite|rlm_sql_mysql|rlm_sql_postgresql)
+    dialect: list(sqlite|mysql|postgresql)
+    server: str
+    port: int(1,65535)
+    login: str
+    password: password
+    radius_db: str
+    read_groups: bool
+    read_clients: bool
+  allow_hosts:
+    - str
+startup: services
