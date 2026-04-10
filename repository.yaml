@@ -1,5 +1,5 @@
 ---
 # https://developers.home-assistant.io/docs/apps/repository#repository-configuration
 name: HA FreeRADIUS Addon
-url: "https://github.com/diegofurukawa/ha_radius_server"
-maintainer: Diego Furukawa <diegofurukawa@github.com>
+url: "https://github.com/diegograssato/ha_radius_server"
+maintainer: Diego Pereira Grassato <diego.grassato@gmail.com>
