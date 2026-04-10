@@ -1,4 +1,5 @@
 ARG BUILD_FROM
+# hadolint ignore=DL3006
 FROM $BUILD_FROM
 
 # Environment
@@ -6,6 +7,7 @@ ENV LANG=C.UTF-8
 
 # Install FreeRADIUS and dependencies
 # mschap is bundled in the base freeradius package on Alpine 3.21
+# hadolint ignore=DL3018
 RUN apk add --no-cache \
     freeradius \
     freeradius-eap \
@@ -19,7 +21,7 @@ RUN apk add --no-cache \
     bash
 
 # Adiciona dicionário Mikrotik ao dictionary principal do FreeRADIUS
-RUN echo '$INCLUDE /usr/share/freeradius/dictionary.mikrotik' >> /etc/raddb/dictionary
+RUN echo "\$INCLUDE /usr/share/freeradius/dictionary.mikrotik" >> /etc/raddb/dictionary
 
 # Prepare runtime directories matching Alpine radiusd.conf defaults:
 # run_dir=/run/radiusd, logdir=/var/log/radius, db_dir=/var/lib/radiusd, cachedir=/var/cache/radiusd

@@ -9,7 +9,6 @@ set +e
 
 declare auth_port
 declare acct_port
-declare log_level
 declare log_auth
 
 bashio::log.info "Iniciando configuração do FreeRADIUS..."
