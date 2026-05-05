@@ -1,6 +1,18 @@
+<img src="https://raw.githubusercontent.com/diegograssato/ha_radius_access/refs/heads/main/icon.png" align="left" width="100" height="100"  alt="Radius logo">
+
 # Home Assistant Addon: FreeRADIUS
 
 Servidor RADIUS para autenticação de rede usando [FreeRADIUS](https://freeradius.org/).
+
+
+**Este componente configurará as seguintes plataformas.**
+
+Platform | Description
+-- | --
+`ha_radius_server` | Home Assistant Addon: FreeRADIUS.
+[ha_radius_access] | Painel administrativo para Home Assistant.
+
+
 
 ## Sobre
 
@@ -30,3 +42,6 @@ Este addon permite executar um servidor FreeRADIUS no Home Assistant, possibilit
 ## Documentação
 
 Consulte [DOCS.md](DOCS.md) para configuração detalhada.
+
+
+[ha_radius_access]: https://github.com/diegograssato/ha_radius_access

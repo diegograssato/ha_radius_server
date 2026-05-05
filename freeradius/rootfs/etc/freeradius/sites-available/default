@@ -84,7 +84,7 @@ server default {
     }
 
     session {
-        -sql
+        sql
     }
 
     post-auth {
