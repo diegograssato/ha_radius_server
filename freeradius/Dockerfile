@@ -14,6 +14,7 @@ RUN apk add --no-cache \
     freeradius-sql \
     freeradius-mysql \
     freeradius-sqlite \
+    freeradius-postgresql \
     freeradius-utils \
     sqlite \
     openssl \
