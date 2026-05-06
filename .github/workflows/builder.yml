@@ -3,8 +3,8 @@
 name: Build addon
 
 env:
-  BUILD_ARGS: "--test"
   MONITORED_FILES: "build.yaml config.yaml Dockerfile rootfs"
+  ARCHITECTURES: '["amd64", "aarch64", "armv7"]'
 
 on:
   pull_request:
@@ -92,60 +92,49 @@ jobs:
             echo "No addon had any monitored files changed (${{ env.MONITORED_FILES }})";
           fi
 
-  build:
+  matrix-gen:
     needs: init
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     if: needs.init.outputs.changed == 'true'
-    name: Build ${{ matrix.arch }} ${{ matrix.addon }}
+    name: Generate build matrix
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
     strategy:
       fail-fast: false
       matrix:
         addon: ${{ fromJson(needs.init.outputs.changed_addons) }}
-        include:
-          - arch: aarch64
-            builder_arch: aarch64
-          - arch: amd64
-            builder_arch: amd64
-          - arch: armv7
-            builder_arch: armhf
-
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
-      - name: Get addon information
-        id: info
-        uses: home-assistant/actions/helpers/info@master
+      - name: Generate matrix for ${{ matrix.addon }}
+        id: matrix
+        uses: home-assistant/builder/actions/prepare-multi-arch-matrix@2026.03.2
         with:
-          path: "./${{ matrix.addon }}"
+          architectures: ${{ env.ARCHITECTURES }}
+          image-name: ${{ matrix.addon }}
 
-      - name: Check if architecture is supported
-        id: check
-        run: |
-          if [[ "${{ steps.info.outputs.architectures }}" =~ ${{ matrix.arch }} ]]; then
-            echo "build_arch=true" >> "$GITHUB_OUTPUT";
-          else
-            echo "${{ matrix.arch }} is not supported by ${{ matrix.addon }}, skipping.";
-          fi
+  build:
+    needs: matrix-gen
+    runs-on: ubuntu-latest
+    name: Build ${{ matrix.arch }} ${{ matrix.image }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix-gen.outputs.matrix) }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
 
-      - name: Set build arguments for release
-        if: steps.check.outputs.build_arch == 'true' && github.event_name != 'pull_request'
-        run: echo "BUILD_ARGS=--docker-hub-check" >> $GITHUB_ENV
-
-      - name: Login to GitHub Container Registry
-        if: steps.check.outputs.build_arch == 'true' && github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+      - name: Build addon image
+        uses: home-assistant/builder/actions/build-image@2026.03.2
         with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build ${{ matrix.addon }} addon (${{ matrix.arch }})
-        if: steps.check.outputs.build_arch == 'true'
-        uses: home-assistant/builder@2026.02.1
-        with:
-          args: >-
-            ${{ env.BUILD_ARGS }}
-            --${{ matrix.builder_arch }}
-            --target /data
-            --addon ${{ matrix.addon }}
+          arch: ${{ matrix.arch }}
+          build-dir: ./${{ matrix.image }}
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          image: ${{ matrix.image }}
+          push: ${{ github.event_name != 'pull_request' }}
+          version: ${{ github.ref_name }}
