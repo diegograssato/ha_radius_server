@@ -35,9 +35,9 @@ server default {
         preprocess
 
         # Normaliza MAC address para maiúsculas (Mikrotik envia em minúsculas)
-        update request {
-            &User-Name := "%{toupper:%{User-Name}}"
-        }
+        #update request {
+        #    &User-Name := "%{toupper:%{User-Name}}"
+        #}
         sql
         chap
         mschap
