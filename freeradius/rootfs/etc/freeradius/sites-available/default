@@ -34,9 +34,9 @@ server default {
         filter_username
         preprocess
 
-        # Normaliza MAC address para minúsculas (Mikrotik envia em maiúsculas)
+        # Normaliza MAC address para maiúsculas (Mikrotik envia em minúsculas)
         update request {
-            &User-Name := "%{tolower:%{User-Name}}"
+            &User-Name := "%{toupper:%{User-Name}}"
         }
         sql
         chap

@@ -28,7 +28,9 @@ Este addon permite executar um servidor FreeRADIUS no Home Assistant, possibilit
 - **EAP/PEAP + MS-CHAPv2** — método mais usado em redes corporativas
 - **EAP/TTLS** — autenticação tunelada altamente compatível
 - **EAP-TLS** — autenticação por certificado cliente (máxima segurança)
-- **SQL Backend** — suporte a SQLite (local), MySQL e PostgreSQL
+- **Usuários e MAC** — suporte para autenticação por usuário (senha) ou MAC (Auth-Type Accept)
+- **SQL Backend** — suporte a arquivo, SQLite (local), MySQL e PostgreSQL com sincronização automática
+- **Sincronização Automática** — add/update/delete de usuários e clientes NAS propagam automaticamente para o banco
 - **Multi-arquitetura** — amd64, aarch64 e armv7
 
 ## Configuração Rápida

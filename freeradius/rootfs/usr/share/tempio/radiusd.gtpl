@@ -1,6 +1,6 @@
 prefix = /usr
 exec_prefix = /usr
-sysconfdir = /etc/freeradius
+sysconfdir = /etc/raddb
 localstatedir = /var
 sbindir = ${exec_prefix}/sbin
 logdir = /var/log/freeradius

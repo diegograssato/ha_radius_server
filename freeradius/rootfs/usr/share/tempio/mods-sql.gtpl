@@ -3,14 +3,17 @@ sql {
     driver = "{{ .sql.driver }}"
     dialect = "{{ .sql.dialect }}"
 
-    {{ if ne .sql.driver "rlm_sql_sqlite" }}
+    {{ if eq .sql.driver "rlm_sql_sqlite" }}
+    sqlite {
+        filename = "{{ .sql.radius_db }}"
+    }
+    {{ else }}
     server = "{{ .sql.server }}"
     port = {{ .sql.port }}
     login = "{{ .sql.login }}"
     password = "{{ .sql.password }}"
-    {{ end }}
-
     radius_db = "{{ .sql.radius_db }}"
+    {{ end }}
 
     acct_table1 = "radacct"
     acct_table2 = "radacct"

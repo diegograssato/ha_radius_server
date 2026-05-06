@@ -31,14 +31,37 @@ clients:
 
 ### Usuários Locais
 
+Os usuários podem ser configurados de dois tipos:
+
+#### Tipo: User (autenticação por senha)
+
 ```yaml
 users:
   - username: joao
-    password: "senha_segura_123"
-    group: "funcionarios"
+    entity_type: user
+    password: "senha_segura_123" 
+    group: "users"
   - username: maria
+    entity_type: user
     password: "outra_senha_456"
+    group: "users"
 ```
+
+#### Tipo: MAC (autenticação por endereço MAC)
+
+Útil para permitir acesso automático de dispositivos (IoT, impressoras, etc) sem exigir senha:
+
+```yaml
+users:
+  - username: "AA:BB:CC:DD:EE:FF"  # Endereço MAC do dispositivo
+    entity_type: mac
+    group: "devices"
+  - username: "11:22:33:44:55:66"
+    entity_type: mac
+    group: "devices"
+```
+
+Quando `entity_type=mac`, o addon insere `Auth-Type := Accept` no banco de dados, permitindo acesso automático.
 
 ### Configuração EAP
 
@@ -68,6 +91,17 @@ eap:
 
 > Se os arquivos de certificado **não forem especificados**, o addon gera automaticamente
 > um certificado auto-assinado na primeira inicialização.
+
+### Sincronização com SQL
+
+Quando o SQL está habilitado:
+- Todos os usuários e clientes NAS são sincronizados automaticamente no banco de dados
+- Mudanças na configuração (add/update/delete) são refletidas no banco na próxima reinicialização
+- A tabela `userinfo` armazena metadados adicionais (`entity_type`, timestamps)
+- Tabela `radcheck` armazena as regras de autenticação:
+  - `user` → `Cleartext-Password := "senha"`
+  - `mac` → `Auth-Type := Accept`
+- Tabela `nas` armazena clientes RADIUS com identificação "Managed by addon"
 
 ### Integração SQL (opcional)
 
@@ -109,28 +143,30 @@ sql:
   radius_db: "radius"
 ```
 
-### Redes Permitidas
-
-```yaml
-allow_hosts:
-  - 10.0.0.0/8
-  - 172.16.0.0/12
-  - 192.168.0.0/16
-```
-
 ## Estrutura de Arquivos Gerada
 
 O addon gera automaticamente os seguintes arquivos de configuração:
 
 | Arquivo | Descrição |
 |---------|-----------|
-| `/etc/freeradius/radiusd.conf` | Configuração principal |
-| `/etc/freeradius/clients.conf` | Clientes RADIUS (NAS) |
-| `/etc/freeradius/users` | Usuários locais |
-| `/etc/freeradius/mods-available/eap` | Módulo EAP |
-| `/etc/freeradius/mods-available/sql` | Módulo SQL (se habilitado) |
-| `/etc/freeradius/sites-enabled/default` | Virtual server padrão |
-| `/etc/freeradius/sites-enabled/inner-tunnel` | Tunnel server (EAP/PEAP/TTLS) |
+| `/etc/raddb/radiusd.conf` | Configuração principal |
+| `/etc/raddb/clients.conf` | Clientes RADIUS (NAS) |
+| `/etc/raddb/users` | Usuários locais (quando SQL desabilitado) |
+| `/etc/raddb/mods-available/eap` | Módulo EAP |
+| `/etc/raddb/mods-available/sql` | Módulo SQL (se habilitado) |
+| `/etc/raddb/sites-enabled/default` | Virtual server padrão |
+| `/etc/raddb/sites-enabled/inner-tunnel` | Tunnel server (EAP/PEAP/TTLS) |
+
+### Banco de Dados SQLite (quando habilitado)
+
+Tabelas gerenciadas automaticamente:
+
+| Tabela | Descrição |
+|--------|----------|
+| `userinfo` | Metadados de usuários (tipo: user/mac, timestamps) |
+| `radcheck` | Regras de autenticação (Cleartext-Password para user, Auth-Type para mac) |
+| `nas` | Clientes RADIUS com origem ("Managed by addon") |
+| Outras tabelas padrão | radacct, radpostauth, etc (gerenciadas pelo FreeRADIUS) |
 
 ## Testando a Autenticação
 

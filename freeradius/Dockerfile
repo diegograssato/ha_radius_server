@@ -49,9 +49,9 @@ RUN chmod a+x \
 # Ensure config dirs are writable by root during init
 RUN chown -R root:radius /etc/raddb \
     && chmod -R g+rX /etc/raddb \
-    && chmod g+w /etc/raddb/mods-available /etc/raddb/sites-enabled /etc/raddb/mods-enabled \
+    && chmod g+w /etc/raddb/mods-available /etc/raddb/sites-enabled /etc/raddb/mods-enabled /etc/raddb/mods-config \
     && chmod 750 /etc/raddb/certs \
     && chown root:radius /etc/raddb/certs
 
 HEALTHCHECK --start-period=10s --interval=30s --timeout=10s \
-    CMD radtest dummy dummy 127.0.0.1 0 testing123 2>&1 | grep -E "(Access-Accept|Access-Reject)" || exit 1
+    CMD echo "Message-Authenticator = 0x00, FreeRADIUS-Statistics-Type = 1" | radclient -x localhost:18121 status adminsecret  | grep -E "(Access-Accept|Access-Reject)" || exit 1

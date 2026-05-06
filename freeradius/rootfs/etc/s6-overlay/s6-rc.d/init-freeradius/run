@@ -11,7 +11,7 @@ declare auth_port
 declare acct_port
 declare log_auth
 
-bashio::log.info "Iniciando configuração do FreeRADIUS..."
+bashio::log.info "Iniciando configuração do FreeRADIUS..." 
 
 # Validações básicas
 if ! bashio::config.has_value 'clients'; then
@@ -94,18 +94,188 @@ if bashio::config.true 'sql.enabled'; then
           -out /etc/raddb/mods-available/sql
     ln -sf /etc/raddb/mods-available/sql /etc/raddb/mods-enabled/sql
 
-    # Inicializa banco SQLite se necessário
+    # Inicializa e sincroniza banco SQLite quando habilitado
     sql_driver=$(bashio::config 'sql.driver')
     if [ "${sql_driver}" = "rlm_sql_sqlite" ]; then
         sql_db=$(bashio::config 'sql.radius_db')
         sql_db_dir=$(dirname "${sql_db}")
         mkdir -p "${sql_db_dir}"
+
         if [ ! -f "${sql_db}" ]; then
             bashio::log.info "Inicializando banco SQLite em: ${sql_db}"
-            sqlite3 "${sql_db}" < /etc/raddb/mods-config/sql/main/sqlite/setup.sql 2>/dev/null || \
+            sqlite3 "${sql_db}" < /etc/raddb/mods-config/sql/main/sqlite/schema.sql 2>/dev/null || \
             bashio::log.warning "Schema SQL não encontrado. O banco será criado automaticamente."
         fi
+
+        # Garante tabela auxiliar userinfo (radcheck e nas vêm do schema padrão)
+        sqlite3 "${sql_db}" <<'SQL_USERINFO' 2>/dev/null || \
+        bashio::log.warning "Não foi possível criar/atualizar a tabela userinfo no SQLite."
+CREATE TABLE IF NOT EXISTS userinfo (
+    username TEXT NOT NULL PRIMARY KEY,
+    description TEXT,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('user', 'mac')),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TRIGGER IF NOT EXISTS trg_userinfo_updated_at
+AFTER UPDATE ON userinfo
+FOR EACH ROW
+WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE userinfo
+    SET updated_at = CURRENT_TIMESTAMP
+    WHERE username = OLD.username;
+END;
+SQL_USERINFO
+
+        # Sincroniza users do options.json em userinfo e radcheck
+        bashio::log.info "Sincronizando usuários no SQLite (userinfo/radcheck)..."
+        managed_users_sql=""
+        while IFS= read -r user_item; do
+            sql_username=$(printf '%s' "${user_item}" | jq -r '.username // empty')
+            sql_password=$(printf '%s' "${user_item}" | jq -r '.password // empty')
+            sql_entity_type=$(printf '%s' "${user_item}" | jq -r '.entity_type // "user"' | tr '[:upper:]' '[:lower:]')
+
+            if [ -z "${sql_username}" ]; then
+                continue
+            fi
+
+            if [ "${sql_entity_type}" != "mac" ]; then
+                sql_entity_type="user"
+            fi
+
+            sql_username_esc=$(printf '%s' "${sql_username}" | sed "s/'/''/g")
+            sql_password_esc=$(printf '%s' "${sql_password}" | sed "s/'/''/g")
+
+            if [ -n "${managed_users_sql}" ]; then
+                managed_users_sql="${managed_users_sql},'${sql_username_esc}'"
+            else
+                managed_users_sql="'${sql_username_esc}'"
+            fi
+
+            sqlite3 "${sql_db}" <<SQL_SYNC 2>/dev/null || \
+            bashio::log.warning "Falha ao sincronizar usuário '${sql_username}' no SQLite."
+INSERT INTO userinfo (username, description, entity_type)
+VALUES ('${sql_username_esc}', 'Managed by addon', '${sql_entity_type}')
+ON CONFLICT(username) DO UPDATE SET
+    description = 'Managed by addon',
+    entity_type = '${sql_entity_type}',
+    updated_at = CURRENT_TIMESTAMP;
+
+DELETE FROM radcheck
+WHERE username = '${sql_username_esc}'
+  AND attribute IN ('Cleartext-Password', 'Auth-Type');
+
+SQL_SYNC
+
+            if [ "${sql_entity_type}" = "mac" ]; then
+                sqlite3 "${sql_db}" <<SQL_SYNC_MAC 2>/dev/null || \
+                bashio::log.warning "Falha ao inserir Auth-Type para MAC '${sql_username}'."
+INSERT INTO radcheck (username, attribute, op, value)
+VALUES ('${sql_username_esc}', 'Auth-Type', ':=', 'Accept');
+SQL_SYNC_MAC
+            else
+                if [ -z "${sql_password}" ]; then
+                    bashio::log.warning "Usuário '${sql_username}' sem senha; entrada Cleartext-Password não foi inserida."
+                    continue
+                fi
+
+                sqlite3 "${sql_db}" <<SQL_SYNC_USER 2>/dev/null || \
+                bashio::log.warning "Falha ao inserir senha para usuário '${sql_username}'."
+INSERT INTO radcheck (username, attribute, op, value)
+VALUES ('${sql_username_esc}', 'Cleartext-Password', ':=', '${sql_password_esc}');
+SQL_SYNC_USER
+            fi
+        done < <(jq -c '.users[]?' /data/options.json)
+
+        # Remove usuários locais apagados da configuração
+        if [ -n "${managed_users_sql}" ]; then
+            sqlite3 "${sql_db}" <<SQL_CLEAN_USERS 2>/dev/null || \
+            bashio::log.warning "Falha ao limpar usuários locais removidos do SQLite."
+DELETE FROM radcheck
+WHERE attribute IN ('Cleartext-Password', 'Auth-Type')
+  AND username IN (
+      SELECT username FROM userinfo
+      WHERE description = 'Managed by addon'
+  )
+  AND username NOT IN (${managed_users_sql});
+
+DELETE FROM userinfo
+WHERE description = 'Managed by addon'
+  AND username NOT IN (${managed_users_sql});
+SQL_CLEAN_USERS
+        else
+            sqlite3 "${sql_db}" <<'SQL_CLEAN_USERS_ALL' 2>/dev/null || \
+            bashio::log.warning "Falha ao limpar usuários locais gerenciados no SQLite."
+DELETE FROM radcheck
+WHERE attribute IN ('Cleartext-Password', 'Auth-Type')
+  AND username IN (
+      SELECT username FROM userinfo
+      WHERE description = 'Managed by addon'
+  );
+
+DELETE FROM userinfo
+WHERE description = 'Managed by addon';
+SQL_CLEAN_USERS_ALL
+        fi
+
+        # Sincroniza clientes locais (NAS) da configuração na tabela nas
+        bashio::log.info "Sincronizando clientes NAS no SQLite (tabela nas)..."
+        managed_nas_sql=""
+        while IFS= read -r client_item; do
+            client_name=$(printf '%s' "${client_item}" | jq -r '.name // empty')
+            client_ipaddr=$(printf '%s' "${client_item}" | jq -r '.ipaddr // empty')
+            client_secret=$(printf '%s' "${client_item}" | jq -r '.secret // empty')
+
+            if [ -z "${client_ipaddr}" ] || [ -z "${client_secret}" ]; then
+                continue
+            fi
+
+            client_name_esc=$(printf '%s' "${client_name}" | sed "s/'/''/g")
+            client_ipaddr_esc=$(printf '%s' "${client_ipaddr}" | sed "s/'/''/g")
+            client_secret_esc=$(printf '%s' "${client_secret}" | sed "s/'/''/g")
+
+            if [ -n "${managed_nas_sql}" ]; then
+                managed_nas_sql="${managed_nas_sql},'${client_ipaddr_esc}'"
+            else
+                managed_nas_sql="'${client_ipaddr_esc}'"
+            fi
+
+            sqlite3 "${sql_db}" <<SQL_SYNC_NAS 2>/dev/null || \
+            bashio::log.warning "Falha ao sincronizar NAS '${client_ipaddr}'."
+DELETE FROM nas
+WHERE nasname = '${client_ipaddr_esc}'
+  AND description = 'Managed by addon';
+
+INSERT INTO nas (nasname, shortname, type, secret, description)
+VALUES (
+    '${client_ipaddr_esc}',
+    '${client_name_esc}',
+    'other',
+    '${client_secret_esc}',
+    'Managed by addon'
+);
+SQL_SYNC_NAS
+        done < <(jq -c '.clients[]?' /data/options.json)
+
+        # Remove NAS locais apagados da configuração
+        if [ -n "${managed_nas_sql}" ]; then
+            sqlite3 "${sql_db}" <<SQL_CLEAN_NAS 2>/dev/null || \
+            bashio::log.warning "Falha ao limpar NAS removidos do SQLite."
+DELETE FROM nas
+WHERE description = 'Managed by addon'
+  AND nasname NOT IN (${managed_nas_sql});
+SQL_CLEAN_NAS
+        else
+            sqlite3 "${sql_db}" <<'SQL_CLEAN_NAS_ALL' 2>/dev/null || \
+            bashio::log.warning "Falha ao limpar NAS gerenciados no SQLite."
+DELETE FROM nas
+WHERE description = 'Managed by addon';
+SQL_CLEAN_NAS_ALL
+        fi
     fi
+    
 else
     # SQL desabilitado: substitui chamadas obrigatórias a sql por -sql nos sites
     bashio::log.info "SQL desabilitado. Ajustando sites para modo sem SQL..."
@@ -117,12 +287,10 @@ fi
 
 # Gera arquivo de usuários (users)
 bashio::log.info "Gerando /etc/raddb/users ..."
-{
-    echo "# Arquivo de usuários gerado automaticamente pelo addon FreeRADIUS"
-    echo "# Não edite manualmente — use as opções do addon"
-    echo ""
-    jq -r '.users[] | "\(.username) Cleartext-Password := \"\(.password)\"\n\tFall-Through = no\n"' /data/options.json
-} > /etc/raddb/users
+cat /data/options.json \
+    | tempio \
+      -template /usr/share/tempio/users.gtpl \
+      -out /etc/raddb/users
 
 # Ajusta permissões
 chown -R root:radius /etc/raddb 2>/dev/null || chown -R root:root /etc/raddb

@@ -37,6 +37,15 @@ configuration:
   users:
     name: Usuários Locais
     description: Lista de usuários locais para autenticação.
+  users.username:
+    name: Usuário / MAC
+    description: Nome do usuário ou endereço MAC (quando tipo = mac).
+  users.entity_type:
+    name: Tipo da Entidade
+    description: Se o registro será tratado como usuário com senha ou MAC com Auth-Type Accept.
+  users.password:
+    name: Senha
+    description: Obrigatória para tipo user. Para tipo mac, pode ficar vazia.
   sql:
     name: Integração SQL
     description: >-
@@ -48,6 +57,3 @@ configuration:
   sql.driver:
     name: Driver do Banco
     description: Tipo de banco de dados (SQLite, MySQL ou PostgreSQL).
-  allow_hosts:
-    name: Redes Permitidas
-    description: Faixas de rede autorizadas a enviar requisições RADIUS.
