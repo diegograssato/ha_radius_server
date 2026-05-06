@@ -63,4 +63,3 @@ configuration:
   sql.driver:
     name: Driver SQL
     description: Driver de banco de dados (SQLite, MySQL ou PostgreSQL).
-
