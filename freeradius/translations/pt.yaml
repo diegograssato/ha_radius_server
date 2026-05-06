@@ -42,7 +42,9 @@ configuration:
     description: Nome do usuário ou endereço MAC (quando tipo = mac).
   users.entity_type:
     name: Tipo da Entidade
-    description: Se o registro será tratado como usuário com senha ou MAC com Auth-Type Accept.
+    description: >-
+      Se o registro será tratado como usuário com senha
+      ou MAC com Auth-Type Accept.
   users.password:
     name: Senha
     description: Obrigatória para tipo user. Para tipo mac, pode ficar vazia.

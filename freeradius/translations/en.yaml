@@ -46,7 +46,9 @@ configuration:
     description: Username or MAC address (when type = mac).
   users.entity_type:
     name: Entity Type
-    description: Defines whether the entry is handled as password user or MAC with Auth-Type Accept.
+    description: >-
+      Defines whether the entry is handled as password user
+      or MAC with Auth-Type Accept.
   users.password:
     name: Password
     description: Required for type user. For type mac, it can be empty.

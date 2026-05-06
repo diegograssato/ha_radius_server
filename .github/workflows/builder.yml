@@ -94,21 +94,20 @@ jobs:
 
   build:
     needs: init
-    runs-on: ${{ matrix.runs-on }}
+    runs-on: ubuntu-24.04
     if: needs.init.outputs.changed == 'true'
     name: Build ${{ matrix.arch }} ${{ matrix.addon }}
     strategy:
       fail-fast: false
       matrix:
         addon: ${{ fromJson(needs.init.outputs.changed_addons) }}
-        arch: ["aarch64", "amd64", "armv7"]
         include:
-          - arch: amd64
-            runs-on: ubuntu-24.04
-          - arch: armv7
-            runs-on: ubuntu-24.04
           - arch: aarch64
-            runs-on: ubuntu-24.04-arm
+            builder_arch: aarch64
+          - arch: amd64
+            builder_arch: amd64
+          - arch: armv7
+            builder_arch: armhf
 
     steps:
       - name: Check out repository
@@ -145,8 +144,8 @@ jobs:
         if: steps.check.outputs.build_arch == 'true'
         uses: home-assistant/builder@2026.02.1
         with:
-          args: |
-            ${{ env.BUILD_ARGS }} \
-            --${{ matrix.arch }} \
-            --target /data/${{ matrix.addon }} \
-            --addon
+          args: >-
+            ${{ env.BUILD_ARGS }}
+            --${{ matrix.builder_arch }}
+            --target /data
+            --addon ${{ matrix.addon }}
