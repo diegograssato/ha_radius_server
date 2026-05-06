@@ -4,7 +4,7 @@ name: Build addon
 
 env:
   MONITORED_FILES: "build.yaml config.yaml Dockerfile rootfs"
-  ARCHITECTURES: '["amd64", "aarch64", "armv7"]'
+  ARCHITECTURES: '["amd64", "aarch64"]'
 
 on:
   pull_request:
