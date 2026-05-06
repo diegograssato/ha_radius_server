@@ -1,4 +1,4 @@
-# users (mac/user) — gerado automaticamente pelo addon FreeRADIUS
+#users (mac/user) — gerado automaticamente pelo addon FreeRADIUS
 # Não edite manualmente — use as opções do addon.
 
 {{ range .users }}

@@ -133,7 +133,7 @@ jobs:
         uses: home-assistant/builder/actions/build-image@2026.03.2
         with:
           arch: ${{ matrix.arch }}
-          build-dir: ./${{ matrix.image }}
+          build-dir: ./freeradius
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
           image: ${{ matrix.image }}
           image-tags: |
